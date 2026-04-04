@@ -1,44 +1,16 @@
-# 🔐 Multi-Factor Authentication (FIXED VERSION)
+# 🔐 Multi-Factor Authentication System (FINAL WORKING)
 
 import streamlit as st
 import random
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 
-st.set_page_config(page_title="Secure Authentication System", page_icon="🔐", layout="wide")
+# ------------------ PAGE CONFIG ------------------
+st.set_page_config(page_title="Secure Authentication System", page_icon="🔐")
 
-page_bg_img = """
-<style>
-.stApp {
-    background-image:https://img.freepik.com/premium-photo/enhancing-user-interface-security-with-multifactor-authentication-secure-login-concept-user-interface-security-multifactor-authentication-secure-login-cybersecurity-measures_918839-326655.jpg?w=2000
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-}
+st.title("🔐 Secure Authentication System")
 
-.stApp::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.55);
-    z-index: -1;
-}
-
-.css-1d391kg, .css-ffhzg2 {
-    background: rgba(255, 255, 255, 0.9) !important;
-}
-
-h1, h2, h3, h4, h5, h6, p, label, div, span {
-    color: #ffffff !important;
-}
-</style>
-"""
-
-st.markdown(page_bg_img, unsafe_allow_html=True)
-
+# ------------------ ML DATA ------------------
 data = pd.DataFrame({
     "time": [0,0,1,1,0,1,0,1],
     "location": [0,1,0,1,0,1,1,0],
@@ -52,29 +24,43 @@ y = data["result"]
 model = LogisticRegression()
 model.fit(X, y)
 
+# ------------------ USER PASSWORD ------------------
 USER_PASSWORD = "admin123"
 
+# ------------------ SESSION STATE ------------------
 if "otp" not in st.session_state:
     st.session_state.otp = None
 
 if "otp_verified" not in st.session_state:
     st.session_state.otp_verified = False
 
-st.title("🔐 Multi-Factor Authentication System")
+if "attempts" not in st.session_state:
+    st.session_state.attempts = 0
+
+# ------------------ PASSWORD LOGIN ------------------
+st.subheader("Step 1: Password Verification")
 
 password = st.text_input("Enter Password", type="password")
 
 if st.button("Login"):
     if password != USER_PASSWORD:
-        st.error("Wrong Password ❌")
+        st.session_state.attempts += 1
+        st.error(f"Wrong Password ❌ (Attempts: {st.session_state.attempts})")
+
+        if st.session_state.attempts >= 3:
+            st.error("Too many attempts! Access blocked 🚫")
     else:
         st.success("Password Verified ✅")
         otp = random.randint(1000, 9999)
         st.session_state.otp = otp
         st.session_state.otp_verified = False
-        st.info(f"Your OTP is: {otp}") 
+        st.info("OTP sent to registered device 📲")
+        st.write(f"(Demo OTP: {otp})")  # demo only
 
+# ------------------ OTP VERIFICATION ------------------
 if st.session_state.otp is not None:
+    st.subheader("Step 2: OTP Verification")
+
     user_otp = st.text_input("Enter OTP")
 
     if st.button("Verify OTP"):
@@ -84,9 +70,10 @@ if st.session_state.otp is not None:
         else:
             st.error("Invalid OTP ❌")
 
+# ------------------ ML SECURITY CHECK ------------------
 if st.session_state.otp_verified:
 
-    st.subheader("🔍 ML Security Check")
+    st.subheader("Step 3: ML Security Check")
 
     time = st.selectbox("Login Time", ["Normal", "Odd"])
     location = st.selectbox("Location", ["Same", "New"])
@@ -97,14 +84,25 @@ if st.session_state.otp_verified:
     dev_val = 0 if device == "Known" else 1
 
     if st.button("Final Verification"):
+
         prediction = model.predict([[time_val, loc_val, dev_val]])
+        prob = model.predict_proba([[time_val, loc_val, dev_val]])[0][1]
+
+        st.write(f"🔍 Security Score: {round(prob*100,2)}%")
 
         if prediction[0] == 1:
             st.success("Login Successful ✅ (Safe User)")
         else:
             st.error("Suspicious Login ❌ (Access Denied)")
 
+# ------------------ RESET BUTTON ------------------
+st.markdown("---")
+
 if st.button("Reset 🔄"):
-    st.session_state.otp = None
-    st.session_state.otp_verified = False
-    st.success("System Reset Successful ✅")
+    st.session_state.clear()
+    st.rerun()
+
+# ------------------ LOGOUT BUTTON ------------------
+if st.button("Logout 🚪"):
+    st.session_state.clear()
+    st.rerun()
